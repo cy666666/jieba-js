@@ -8,11 +8,17 @@
   "dependencies": {
     "body-parser": "~1.16.0",
     "cookie-parser": "~1.4.3",
+    "cookies": "^0.7.0",
     "debug": "~2.6.0",
     "express": "~4.14.1",
+    "express-session": "^1.15.2",
+    "jquery": "*",
+    "jsdom": "*",
     "morgan": "~1.7.0",
-	"request": "*",
-	"jquery":"*",
-	"jsdom":"*"
+    "multer": "^1.3.0",
+    "request": "*",
+    "sequelize": "^3.30.4",
+    "sqlite3": "^3.1.8",
+    "tmp": "0.0.31"
   }
 }

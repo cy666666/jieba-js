@@ -12,15 +12,15 @@ require("jsdom").env("", function(err, window) {
     $.getJSON("http://exp-linked-data-proxy-2017.dlll.nccu.edu.tw/wiki,moedict,cbdb,tgaz,cdict,pixabay/apple?callback=?", function (_data) {
     console.log(_data);
         result=$(_data[0]["response"]).text();
-        console.log(result+"1");
+        //console.log(result+"1");
     });
-    console.log(result+"2");
+    //console.log(result+"2");
     return result;
 };
 
    var $ = require('jquery')(window);
    var test=query_from_server();
-   console.log(test+"3");
+   //console.log(test+"3");
 
 
 });
