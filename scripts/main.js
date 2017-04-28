@@ -289,6 +289,10 @@ jieba_parsing = function(dictionary, _callback) {
     }
 };
 
+node_jieba_reset = function () {
+    jieba_cut = undefined;
+};
+
 node_jieba_parsing = function (_dicts, _text, _callback) {
     if (typeof(_callback) !== "function") {
         return;

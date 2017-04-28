@@ -2,18 +2,18 @@ require('../scripts/main.js');
 require('../jiebaserver/testjq.js');
 
 var express = require('express');
-var dict1 = require('../scripts/data/dictionary.js');
-var dict2 = require('../scripts/data/dict_custom.js');
+var GENERAL_DICT = require('../scripts/data/dictionary.js');
+
 var request = require("request");
 //var tmp = require("tmp");
 
-var temp_array=[];    //把斷完詞的array以每100個詞進行切分  切分為數個array ex:[[a,b,....],[c,d,....]]
-var sub_array=[];     //for loop把temp_array裡的sub_array取出來依序丟到linked data proxy進行check
-var check_result_array;  //各個sub_array進行check後回傳的check_result_array
-var sub_result;         //各個check_result_array轉為string
-var joined_result;    //把每個sub_result結合起來 準備回傳給client
-var url = "http://exp-linked-data-proxy-2017.dlll.nccu.edu.tw/check/wiki,moedict,cbdb,tgaz,cdict,pixabay/" ;
 
+var sub_array=[];     //for loop把temp_array裡的sub_array取出來依序丟到linked data proxy進行check
+var check_result_array=[];  //各個sub_array進行check後回傳的check_result_array
+var sub_result;         //各個check_result_array轉為string
+
+var URL = "http://exp-linked-data-proxy-2017.dlll.nccu.edu.tw/check/wiki,moedict,cbdb,tgaz,cdict,pixabay/" ;
+//var URL = "http://pc.pulipuli.info:3000/check/wiki,moedict,cbdb,tgaz,cdict,pixabay/";
 var fs = require('fs');
 
 
@@ -44,11 +44,18 @@ app.post("/parse_article", function (req, res) {
 	  	// 2. 把暫存檔案的路徑放入COOKIE	
 	  	var cache_id = articlecache.get('id');
 	  	cookies.set("cache_id", cache_id);
+	  	//console.log(created);
+	  	//console.log(articlecache.get("result"));
+	  	//console.log(articlecache.get({plain: true}));
 	  	res.send("");
-		if (created === true || articlecache.get("result") === null || articlecache.get("result") === "") {
+		if (created === true 
+			|| articlecache.get("result") === null 
+			|| articlecache.get("result") === "" ) {
 		  	// 3. 開始斷詞或其他的處理
 		  	_process(article, function(result) {
 		  		// 4. 處理完之後放入暫存檔案 
+		  		//console.log("4. 處理完之後放入暫存檔案 ");
+		  		//console.log(result);
 		  		tableArticleCache.update(
 		  			{result:result},
 		  			{where:{id:cache_id}}
@@ -90,7 +97,7 @@ app.get("/add_term",function (req, res){
 	var cache_id = req.query.cache_id;
 	var dict_string="";
 	// 1. 取得dict_custom.js
-	var dict_custom='../scripts/data/dict_custom.js';
+	var dict_custom='../scripts/data/dict_custom.json';
 	var foo=fs.openSync(dict_custom,'r+');
 	fs.readFile(dict_custom, "utf-8" ,function(err,data){
 		if(err){
@@ -107,9 +114,9 @@ app.get("/add_term",function (req, res){
 				//console.log("這是新詞");
 
 			// 4. 把詞庫加入term，重組dict_custom.js
-				var _head = dict_string.substr(0,17);
+				var _head = dict_string.substr(0,2);
 				var _new_term = '\t["' + term  + '", 99999, "n"],\n';
-				var _foot = dict_string.substring(17,dict_string.length);
+				var _foot = dict_string.substring(2,dict_string.length);
 
 				var _new_dict = _head + _new_term + _foot;
 
@@ -117,14 +124,23 @@ app.get("/add_term",function (req, res){
 				// 	["郁離子",9999,"n"],
 				fs.writeSync(foo,_new_dict,0);
 				fs.close(foo);
+				_load_custom_dict();
 
 			// 5. 刪除快取 by cache id
-				tableArticleCache
+			
+			/*	tableArticleCache
 				.findById(cache_id)
 				.then(function(task){
+					console.log(cache_id);
 					return task.destroy();
 				});
-				}
+			*/
+				tableArticleCache.update(
+		  			{result:null},
+		  			{where:{id:cache_id}}
+		  		);
+		  		res.jsonp(true);
+			}
 	// 6. 如果已經有這個詞了...
 			else{
 				//console.log("詞庫的第:"+term_existat+"個字找到 "+term+" 這個詞");
@@ -139,6 +155,15 @@ app.get("/add_term",function (req, res){
 });
 // --------------------------------------------------------
 
+
+var _custom_dict = undefined;
+var _load_custom_dict = function () {
+	var json = JSON.parse(fs.readFileSync('../scripts/data/dict_custom.json', 'utf8'));
+	_custom_dict=json;
+	node_jieba_reset();
+};
+
+_load_custom_dict();
 /**
  * callback(result)
  */
@@ -150,39 +175,27 @@ var _process = function (article, callback) {
 	// --------------------------
 	//article = article.substr(0, 50);
 
-	article=article.replace(/\"/g, "");
-	article=article.replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "");
-	
-	node_jieba_parsing([dict1, dict2], article, function (_result) {
-	
+	//article=article.replace(/\"/g, "");
+	//article=article.replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "");
 
-	for(var t=0,len=_result.length;t<len;t+=100){
-		temp_array.push(_result.slice(t,t+100));
-	}
-
-	
-	for(var s=0;s<temp_array.length;s++){
-		sub_array=temp_array[s];
-		sub_result=sub_array.join(" ");
-		
-
-
-		request({
-			url: url,
-			method:'POST',
-			json: {query:sub_result}
-		}, function (error, response, body) {
-		  	
-			check_result_array=body;   		  
-			console.log(check_result_array);
-			
-			if (!error && response.statusCode === 200) {
-			    //console.log(body.join(" "));
-			    //console.log(seq_result_array);
-				//console.log(check_result_array);
-
-			for ( var i = 0; i < sub_array.length; i++ ) {
+	var _parse_check_result_array = function (sub_array, check_result_array) {
+		var _result = [];
+		//console.log(sub_array);
+		if (check_result_array !== undefined) {
+			for (var i = 0; i < sub_array.length; i++ ) {
 				var found = false;
+				var _word = sub_array[i].replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "").trim();
+				if (_word === ""  
+					|| _word === " " 
+					|| _word === "\n"
+					|| _word === "\r"
+					|| _word === "\t") {
+					_result.push(sub_array[i]);
+					continue;
+					
+				} 
+
+
 				for (var j = 0; j < check_result_array.length; j++) {
 					if (sub_array[i] === check_result_array[j]) {
 						found = true;
@@ -191,136 +204,103 @@ var _process = function (article, callback) {
 				}
 
 				if (found === true)  {
-	 				sub_array[i]='<span class="vocabulary tooltip">'+sub_array[i]+'</span>';
+	 				_result.push('<span class="autoanno_vocabulary autoanno_tooltip" data-tooltip-content="#autoanno_tooltip_content">'
+ 						+ sub_array[i]
+ 						+ '</span>');
 				}
 				else {
-					sub_array[i]='<span class="vocabulary">'+sub_array[i]+'</span>';
+					_result.push('<span class="autoanno_vocabulary">'
+						+ sub_array[i] 
+						+ '</span>');
 				}
 			}
-
-		sub_result=sub_array.join("");
-		
 		}
-		});   //處理完每段sub array的check
-		joined_result+=sub_result;
-	
-	}   //sub array的for迴圈
-
-	callback(joined_result);
-	});
-};
-
-	
-/*
-	console.log(seq_result_array);
-	console.log(check_result_array);
-	
-
-	for ( var i = 0; i < seq_result_array.length; i++ ) {
-			//if (seq_result_array[i]==check_result_array[j]) {
-			var found = false;
-			for (var j = 0; j < check_result_array.length; j++) {
-				if (seq_result_array[i] === check_result_array[j]) {
-					found = true;
-					break;
-				}
-			}
-
-			if (found === true)  {
- 				seq_result_array[i]='<span class="vocabulary tooltip">'+seq_result_array[i]+'</span>';
-			}
-			else {
-				seq_result_array[i]='<span class="vocabulary">'+seq_result_array[i]+'</span>';
-			}
-	}
-
-	// [
-	//    '<span class="vocabulary">誠意伯</span>',
-	//    '<span class="vocabulary">劉</span>',
-
-
-
-	result=seq_result_array.join("");
-*/
-	//res.jsonp(result);
-	//callback(result);
-
-
-
-
-// --------------------------------------------------------
-/*
-app.get('/',function(req,res){
-	
-	var article ;
-
-	article=JSON.stringify(req.query.article);
-	article=article.replace(/\"/g, "");
-	article=article.replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "");
-	var result ;
-	node_jieba_parsing([dict1, dict2], article, function (_result) {
-	
-	seq_result_array=_result;  //save segement result to an array seq_result_array
-
-	console.log(_result.join(" "));
-
-		result=_result.join(" ");
-
-	});
-	request({
-		url: url,
-		method:'POST',
-		json: {query:result}
-	}, function (error, response, body) {
-			  
-
-		check_result_array=body;   //save segement result to an array seq_result_array		  
-		
-		if (!error && response.statusCode === 200) {
-
 			
+		//console.log(sub_result);
+		sub_result=_result.join("");
+		return sub_result;
+	};  //end of var _parse_check_result_array = function (sub_array, check_result_array)
+	//console.log(_custom_dict);
+	node_jieba_parsing([GENERAL_DICT, _custom_dict], article, function (_result) {
+		var temp_array=[];    //把斷完詞的array以每50個詞進行切分  切分為數個array ex:[[a,b,....],[c,d,....]]
+		var joined_result = "";    //把每個sub_result結合起來 準備回傳給client
 
-		    console.log(body.join(" "));
+		//console.log(article);
+		var BATCH_CHECK = 10;
+
+		for(var t=0,len=_result.length;t<len;t+=BATCH_CHECK){
+			temp_array.push(_result.slice(t,t+BATCH_CHECK));
 		}
-	})
 
-	console.log(seq_result_array);
-	console.log(check_result_array);
-	
+		// array: temp_array
+		// limit: temp_array.length
+		// callback: callback(joined_result);
 
-	for ( var i = 0; i < seq_result_array.length; i++ ) {
-			//if (seq_result_array[i]==check_result_array[j]) {
-			var found = false;
-			for (var j = 0; j < check_result_array.length; j++) {
-				if (seq_result_array[i] === check_result_array[j]) {
-					found = true;
-					break;
+
+
+		var _loop = function (_i) {
+			if (_i < temp_array.length) {
+				//console.log("送出第" + _i + "次");
+				// 執行迴圈
+				var sub_array = [];
+				for (var _t = 0; _t < temp_array[_i].length; _t++) {
+					var _term = temp_array[_i][_t].replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "").trim();
+					if (_term !== "") {
+						sub_array.push(_term);
+					}
+					
 				}
-			}
 
-			if (found === true)  {
- 				seq_result_array[i]='<span class="vocabulary tooltip">'+seq_result_array[i]+'</span>';
+				var sub_result=sub_array.join(" ");
+
+				if(sub_array.length === 0 
+					|| sub_result === "" 
+					|| sub_result === undefined ){
+					_i++;
+					_loop(_i);
+					return;
+				}
+
+				var _defalut_timeout=0;
+				request({
+					url: URL,
+					method:'POST',
+					json: {query:sub_result}
+				}, function (error, response, body) {
+					if (!error 
+						&& response.statusCode === 200 
+						&& typeof(body) !== "undefined" ) {
+						//console.log(body.join(","));
+						if (typeof(body) === "undefined" 
+							&& typeof(response.body) !== "undefined") {
+							body = response.body;
+						} 
+						joined_result = joined_result + _parse_check_result_array(sub_array, body);
+						_i++;
+						_defalut_timeout=0;
+					}
+					else{
+						_defalut_timeout=3000;
+						//console.log("[" + sub_result + "]");
+					}
+					
+					setTimeout(function() {
+						//console.log(_defalut_timeout);
+						_loop(_i);
+					}, _defalut_timeout);
+					
+				});
+				
 			}
 			else {
-				seq_result_array[i]='<span class="vocabulary">'+seq_result_array[i]+'</span>';
+				// 結束了
+				callback(joined_result);
 			}
-	}
+		};
+		_loop(0);
 
-	// [
-	//    '<span class="vocabulary">誠意伯</span>',
-	//    '<span class="vocabulary">劉</span>',
-
-
-
-	result=seq_result_array.join("");
-
-	res.jsonp(result);
-
-
-});
-
-*/
-// -------------------------------------------------------------
+	});	// end of node_jieba_parsing([dict1, dict2], article, function (_result) {
+}; // end of process
 
 
 app.set('port',process.env.PORT || 8000);
