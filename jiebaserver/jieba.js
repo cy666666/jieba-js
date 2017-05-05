@@ -5,7 +5,6 @@ var express = require('express');
 var GENERAL_DICT = require('../scripts/data/dictionary.js');
 
 var request = require("request");
-//var tmp = require("tmp");
 
 
 var sub_array=[];     //for loop把temp_array裡的sub_array取出來依序丟到linked data proxy進行check
@@ -13,9 +12,10 @@ var check_result_array=[];  //各個sub_array進行check後回傳的check_result
 var sub_result;         //各個check_result_array轉為string
 
 var URL = "http://exp-linked-data-proxy-2017.dlll.nccu.edu.tw/check/wiki,moedict,cbdb,tgaz,cdict,pixabay/" ;
-//var URL = "http://pc.pulipuli.info:3000/check/wiki,moedict,cbdb,tgaz,cdict,pixabay/";
+//var URL = "http://pc.pulipuli.info:3000/check_post/wiki,moedict,cbdb,tgaz,cdict,pixabay/";
 var fs = require('fs');
 
+var DIR_LJL='../jiebaserver/ljlarticle';
 
 /*var _modules = ["wiki","moedict","cbdb","tgaz","pixabay"];*/
 app=express();
@@ -28,13 +28,118 @@ require("./session.js");
 Cookies = require( "cookies" );
 
 require('./database.js');
+//--------------------------------------------------------------------------------------------
+app.get("/client/js/linked-data-proxy-lib.js", function (_req, _res) {
+    fs.readFile("./client_js/linked-data-proxy-lib.js", 'utf8', function (err, data) {
+        _res.setHeader('content-type', 'text/javascript');
+        _res.send(data);
+    });
+});
 
+app.get("/client/css/style.css", function (_req, _res) {
+    fs.readFile("./client_css/style.css", 'utf8', function (err, data) {
+        _res.setHeader('content-type', 'text/css');
+        _res.send(data);
+    });
+});
+app.get("/client/css/tooltipster.bundle.min.css", function (_req, _res) {
+    fs.readFile("./client_css/tooltipster.bundle.min.css", 'utf8', function (err, data) {
+        _res.setHeader('content-type', 'text/css');
+        _res.send(data);
+    });
+});
+app.get("/client/css/tooltipster-sideTip-noir.min.css", function (_req, _res) {
+    fs.readFile("./client_css/tooltipster-sideTip-noir.min.css", 'utf8', function (err, data) {
+        _res.setHeader('content-type', 'text/css');
+        _res.send(data);
+    });
+});
+
+app.get("/client/js/jquery.js", function (_req, _res) {
+    fs.readFile("./client_js/jquery.js", 'utf8', function (err, data) {
+        _res.setHeader('content-type', 'text/javascript');
+        _res.send(data);
+    });
+});
+app.get("/client/js/rangy-core.js", function (_req, _res) {
+    fs.readFile("./client_js/rangy-core.js", 'utf8', function (err, data) {
+        _res.setHeader('content-type', 'text/javascript');
+        _res.send(data);
+    });
+});
+app.get("/client/js/utils.js", function (_req, _res) {
+    fs.readFile("./client_js/utils.js", 'utf8', function (err, data) {
+        _res.setHeader('content-type', 'text/javascript');
+        _res.send(data);
+    });
+});
+app.get("/client/js/tooltipster.bundle.min.js", function (_req, _res) {
+    fs.readFile("./client_js/tooltipster.bundle.min.js", 'utf8', function (err, data) {
+        _res.setHeader('content-type', 'text/javascript');
+        _res.send(data);
+    });
+});
+
+app.get("/client/js/loading.gif", function (_req, _res) {
+    fs.readFile("./client_js/loading.gif", function (err, data) {
+        _res.setHeader('content-type', 'image/gif');
+        _res.send(data);
+    });
+});
+
+//----------------------------------------------------------------------------------------------
+app.get("/article",function(req, res){
+	fs.readFile("./template/article.html", 'utf8',function(err, data){
+		res.setHeader('content-type', 'text/html');
+
+		//var _title = "title";
+		
+		//console.log(typeof(data));
+		//console.log(data);
+		fs.readFile('./ljlarticle/'+req.query.file, 'utf8', function (err,content) {
+		  if (err) {
+		    return console.log(err);
+		  }
+		  var _title = req.query.file;
+		  var _content = content;
+
+		  _content = _content.split("\n").join("<br />");
+
+		  data = data.replace(/{{TITLE}}/g, _title);
+		  data = data.replace(/{{CONTENT}}/g, _content);
+		  res.send(data);
+		});
+		
+		
+	});
+});
+
+
+app.get("/directory",function(req, res){
+	fs.readFile("./template/directory.html", 'utf8',function(err, data){
+		res.setHeader('content-type', 'text/html');
+		
+
+		fs.readdir(DIR_LJL, function(err, files) {
+		    if (err) return;
+		    var _content="";
+		    files.forEach(function(f) {
+		        _content = _content 
+		        	+ '<li><a href="article?file=' + f + '">' + f + '</a></li>' ;
+		    });
+		    data = data.replace(/{{CONTENT}}/g, _content);
+		    res.send(data);
+		});
+	});
+});
+//----------------------------------------------------------------------------------------------
 
 app.post("/parse_article", function (req, res) {
 
 	var cookies = new Cookies( req, res );
 
 	var article = req.body.article;
+	//console.log(article);
 	
 	tableArticleCache.findOrCreate({
 		where:{article:article}
@@ -172,17 +277,17 @@ var _process = function (article, callback) {
 	//callback("aaaaaaa12121212a" + article);
 	//return;
 
-	// --------------------------
-	//article = article.substr(0, 50);
 
-	//article=article.replace(/\"/g, "");
-	//article=article.replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "");
-
-	var _parse_check_result_array = function (sub_array, check_result_array) {
+var _parse_check_result_array = function (sub_array, check_result_array) {
 		var _result = [];
 		//console.log(sub_array);
 		if (check_result_array !== undefined) {
 			for (var i = 0; i < sub_array.length; i++ ) {
+				if (sub_array[i] === "\n" && _replace_br === true) {
+					_result.push('<br />');
+					continue;
+				}
+
 				var found = false;
 				var _word = sub_array[i].replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "").trim();
 				if (_word === ""  
@@ -203,6 +308,7 @@ var _process = function (article, callback) {
 					}
 				}
 
+
 				if (found === true)  {
 	 				_result.push('<span class="autoanno_vocabulary autoanno_tooltip" data-tooltip-content="#autoanno_tooltip_content">'
  						+ sub_array[i]
@@ -218,10 +324,16 @@ var _process = function (article, callback) {
 			
 		//console.log(sub_result);
 		sub_result=_result.join("");
+		//console.log(sub_result);
 		return sub_result;
 	};  //end of var _parse_check_result_array = function (sub_array, check_result_array)
-	//console.log(_custom_dict);
-	node_jieba_parsing([GENERAL_DICT, _custom_dict], article, function (_result) {
+
+	// ----------------------------------------
+
+var _node_jieba_parsing_callback = function (_result) {
+		//console.log(_result);
+		//return;
+
 		var temp_array=[];    //把斷完詞的array以每50個詞進行切分  切分為數個array ex:[[a,b,....],[c,d,....]]
 		var joined_result = "";    //把每個sub_result結合起來 準備回傳給client
 
@@ -244,7 +356,8 @@ var _process = function (article, callback) {
 				// 執行迴圈
 				var sub_array = [];
 				for (var _t = 0; _t < temp_array[_i].length; _t++) {
-					var _term = temp_array[_i][_t].replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "").trim();
+					//var _term = temp_array[_i][_t].replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "").trim();
+					var _term = temp_array[_i][_t];
 					if (_term !== "") {
 						sub_array.push(_term);
 					}
@@ -261,7 +374,10 @@ var _process = function (article, callback) {
 					return;
 				}
 
+				//console.log(sub_result);
+
 				var _defalut_timeout=0;
+				//console.log(["check url", URL]);
 				request({
 					url: URL,
 					method:'POST',
@@ -280,7 +396,7 @@ var _process = function (article, callback) {
 						_defalut_timeout=0;
 					}
 					else{
-						_defalut_timeout=3000;
+						_defalut_timeout=10000;
 						//console.log("[" + sub_result + "]");
 					}
 					
@@ -294,13 +410,34 @@ var _process = function (article, callback) {
 			}
 			else {
 				// 結束了
+				//console.log(joined_result);
 				callback(joined_result);
 			}
 		};
 		_loop(0);
 
-	});	// end of node_jieba_parsing([dict1, dict2], article, function (_result) {
+	};
+
+	// --------------------------
+	//article = article.substr(0, 50);
+
+	//article=article.replace(/\"/g, "");
+	//article=article.replace(/(?:\\[rnt]|[\r\n\t]+)+/g, "");
+
+	//console.log(article);
+	//return;
+	
+	//console.log(_custom_dict);
+	var _replace_br = false;
+	if (article.indexOf("<br>") > -1) {
+		article = article.replace(/<br>/g, "\n");
+		_replace_br = true;
+	}
+	
+
+	node_jieba_parsing([GENERAL_DICT, _custom_dict], article, _node_jieba_parsing_callback);	// end of node_jieba_parsing([dict1, dict2], article, function (_result) {
 }; // end of process
+
 
 
 app.set('port',process.env.PORT || 8000);
