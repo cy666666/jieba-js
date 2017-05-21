@@ -4,7 +4,6 @@ var AUTOANNO = {};
 var SELECTOR=".content";
 cache_id = undefined;
 var SELECT_TEXT;
-
 var URL_LDP="http://exp-linked-data-proxy-2017.dlll.nccu.edu.tw";
 //var URL_LDP="http://pc.pulipuli.info:3000";
 var URL_JIEBA="http://localhost:8000";
@@ -14,14 +13,14 @@ var URL_BASE = "http://localhost:8000/";
 var MODULE_NAME = {
       "zh.wikipedia.org": "維基百科",
       "www.moedict.tw": "萌典",
-      "cdict.net": "字典",
+      //"cdict.net": "字典",
       "maps.cga.harvard.edu": "TGAZ",
       "cbdb.fas.harvard.edu": "CBDB"
     };
 var MODULE_SYMBOL ={
       "zh.wikipedia.org": "wiki",
       "www.moedict.tw": "moedict",
-      "cdict.net": "cdict",
+      //"cdict.net": "cdict",
       "maps.cga.harvard.edu": "tgaz",
       "cbdb.fas.harvard.edu": "cbdb"
     };
@@ -88,15 +87,20 @@ AUTOANNO.iframe_post = function (_url, _data, _callback) {
 };
 
 AUTOANNO.iframe_post_callback = function(result) {
-
+    //console.log(cache_id);
+    var _url = URL_JIEBA+"/parse_article?callback=?";
     var _retry = function () {
-      $.getJSON(URL_JIEBA+"/parse_article?callback=?", function (data) {
+
+      $.getJSON(_url, function (data) {
           if (data === null) {
             setTimeout(function () {
               console.log("再次查詢");
               _retry();
             }, 10000);
             return;
+          }
+          else if (typeof(data) === "number") {
+            _url = URL_JIEBA+"/parse_article?cache_id=" + data + "&callback=?";
           }
 
           var result = data.result;
@@ -177,6 +181,7 @@ AUTOANNO._setup_tooltip = function () {
 
   rangy.init();
   console.log("ready");
+  
   $(SELECTOR).mouseup(function () {
     var sel = rangy.getSelection();
     var _selection_text = sel.toString().trim();
@@ -198,9 +203,10 @@ AUTOANNO.query = function (instance, add_term_mode, callback) {
   else {
     ts = instance;
   }
-  
-  
-  var _url = URL_LDP+"/wiki,moedict,cbdb,tgaz,cdict,pixabay/"+ts+"?callback=?"; 
+    
+
+  var _url = URL_LDP+"/wiki,moedict,cbdb,tgaz/"+ts+"?callback=?"; 
+  //var _url = URL_LDP+"/wiki,moedict,cbdb,tgaz,cdict,pixabay/"+ts+"?callback=?"; 
   $.getJSON(_url, function (_data) {
     var _result = $("<div></div>");
     var _que=$("<div></div>").addClass("que").appendTo(_result);

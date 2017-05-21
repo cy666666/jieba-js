@@ -1,8 +1,14 @@
-require('../scripts/main.js');
-require('../jiebaserver/testjq.js');
+require('./scripts/main.js');
+require("jsdom").env("", function(err, window) {
+    if (err) {
+        console.error(err);
+        return;
+    }
+   var $ = require('jquery')(window);
+});
 
 var express = require('express');
-var GENERAL_DICT = require('../scripts/data/dictionary.js');
+var GENERAL_DICT = require('./scripts/data/dictionary.js');
 
 var request = require("request");
 
@@ -11,7 +17,9 @@ var sub_array=[];     //for loop把temp_array裡的sub_array取出來依序丟�
 var check_result_array=[];  //各個sub_array進行check後回傳的check_result_array
 var sub_result;         //各個check_result_array轉為string
 
-var URL = "http://exp-linked-data-proxy-2017.dlll.nccu.edu.tw/check/wiki,moedict,cbdb,tgaz,cdict,pixabay/" ;
+var URL = "http://exp-linked-data-proxy-2017.dlll.nccu.edu.tw/check/wiki,moedict,cbdb,tgaz/" ;
+
+//var URL = "http://exp-linked-data-proxy-2017.dlll.nccu.edu.tw/check/wiki,moedict,cbdb,tgaz,cdict,pixabay/" ;
 //var URL = "http://pc.pulipuli.info:3000/check_post/wiki,moedict,cbdb,tgaz,cdict,pixabay/";
 var fs = require('fs');
 
@@ -114,7 +122,6 @@ app.get("/article",function(req, res){
 	});
 });
 
-
 app.get("/directory",function(req, res){
 	fs.readFile("./template/directory.html", 'utf8',function(err, data){
 		res.setHeader('content-type', 'text/html');
@@ -122,13 +129,101 @@ app.get("/directory",function(req, res){
 
 		fs.readdir(DIR_LJL, function(err, files) {
 		    if (err) return;
-		    var _content="";
+		    var _content1 = '<fieldset id="ljl_field" style="border : 0; display : none;">';
+		    var _content2 = '<fieldset id="ming_field" style="border : 0; display : none;">';
+		    var _precontent = "";
+
+		    var _directory_abstract_max_length = 20;
 		    files.forEach(function(f) {
-		        _content = _content 
-		        	+ '<li><a href="article?file=' + f + '">' + f + '</a></li>' ;
+		    	var predata = fs.readFileSync("./ljlarticle/" + f, 'utf8');
+		    	predata = predata.replace(/(?:\\[rnt]|[\r\n\t　]+)+/g, "").trim();
+				//console.log(predata.substring(0, 19));
+				if (predata.length > _directory_abstract_max_length) {
+					_precontent = predata.substring(0, _directory_abstract_max_length) + "...";
+				}
+				if(escape(f).indexOf('0704')!=-1){
+					_content1 = _content1
+	        		+ '<li><a id="'+ escape(f) +'" href="article?file=' + f + '">' + f + '</a>: '+ _precontent +'</li>';
+				}
+				else{
+					_content2 = _content2
+					+ '<li><a id="'+ escape(f) +'" href="article?file=' + f + '">' + f + '</a>: '+ _precontent +'</li>';
+				}	    			        
 		    });
-		    data = data.replace(/{{CONTENT}}/g, _content);
-		    res.send(data);
+		    _content1 = _content1+"</fieldset>";
+		    _content2 = _content2+"</fieldset>";
+			data = data.replace(/{{CONTENT}}/g, _content1 + _content2);
+			res.send(data);  
+		});
+	});
+});
+
+app.get("/directory_ljl",function(req, res){
+	fs.readFile("./template/directory.html", 'utf8',function(err, data){
+		res.setHeader('content-type', 'text/html');
+		
+		var _article_title="羅家倫文存";
+		fs.readdir(DIR_LJL, function(err, files) {
+		    if (err) return;
+		    var _content = "";
+		    var _precontent = "";
+
+		    var _directory_abstract_max_length = 20;
+		    files.forEach(function(f) {
+
+
+		    	if(f.indexOf("0704")==-1){
+		    		return;
+		    	}
+		    	var predata = fs.readFileSync("./ljlarticle/" + f, 'utf8');
+		    	predata = predata.replace(/(?:\\[rnt]|[\r\n\t　]+)+/g, "").trim();
+				//console.log(predata.substring(0, 19));
+				if (predata.length > _directory_abstract_max_length) {
+					_precontent = predata.substring(0, _directory_abstract_max_length) + "...";
+				}
+
+				_content = _content
+	        	+ '<li><a href="article?file=' + f + '">' + f + '</a>: '+ _precontent +'</li>';
+       
+		    });
+		    data = data.replace(/{{ARTICLE}}/g, _article_title);
+			data = data.replace(/{{CONTENT}}/g, _content);
+			res.send(data);  
+		});
+	});
+});
+
+app.get("/directory_ming",function(req, res){
+	fs.readFile("./template/directory.html", 'utf8',function(err, data){
+		res.setHeader('content-type', 'text/html');
+		
+		var _article_title="明人文集-謙齋文錄";
+		fs.readdir(DIR_LJL, function(err, files) {
+		    if (err) return;
+		    var _content = "";
+		    var _precontent = "";
+
+		    var _directory_abstract_max_length = 20;
+		    files.forEach(function(f) {
+
+
+		    	if(f.indexOf("0704")!=-1){
+		    		return;
+		    	}
+		    	var predata = fs.readFileSync("./ljlarticle/" + f, 'utf8');
+		    	predata = predata.replace(/(?:\\[rnt]|[\r\n\t　]+)+/g, "").trim();
+				//console.log(predata.substring(0, 19));
+				if (predata.length > _directory_abstract_max_length) {
+					_precontent = predata.substring(0, _directory_abstract_max_length) + "...";
+				}
+
+				_content = _content
+	        	+ '<li><a href="article?file=' + f + '">' + f + '</a>: '+ _precontent +'</li>';
+       
+		    });
+		    data = data.replace(/{{ARTICLE}}/g, _article_title);
+			data = data.replace(/{{CONTENT}}/g, _content);
+			res.send(data);  
 		});
 	});
 });
@@ -173,9 +268,17 @@ app.post("/parse_article", function (req, res) {
 app.get("/parse_article", function (req, res) {
 
 	// 1. 取得COOKIE
-	var cookies = new Cookies( req, res );
-    var cache_id = cookies.get("cache_id");
-    cache_id = parseInt(cache_id, 10);
+	var cache_id;
+	if (typeof(req.query.cache_id) === "undefined" ) {
+		var cookies = new Cookies( req, res );
+	    cache_id = cookies.get("cache_id");
+	    
+	}
+	else {
+		cache_id = req.query.cache_id;
+	}
+	cache_id = parseInt(cache_id, 10);
+		
 
 
 	// 2. 取得暫存檔案
@@ -184,7 +287,7 @@ app.get("/parse_article", function (req, res) {
 	  .then(function(articlecache) {
 	  	if (articlecache === null || articlecache.get("result") === null || articlecache.get("result") === "") {
 	  		// 3-1. IF 暫存檔案沒有資料: 回傳undefined
-	  		res.jsonp(null);
+	  		res.jsonp(cache_id);
 	  	}
 	  	else {
 	  		// 3-2. if 暫存檔案有資料
@@ -202,7 +305,7 @@ app.get("/add_term",function (req, res){
 	var cache_id = req.query.cache_id;
 	var dict_string="";
 	// 1. 取得dict_custom.js
-	var dict_custom='../scripts/data/dict_custom.json';
+	var dict_custom='./scripts/data/dict_custom.json';
 	var foo=fs.openSync(dict_custom,'r+');
 	fs.readFile(dict_custom, "utf-8" ,function(err,data){
 		if(err){
@@ -263,7 +366,7 @@ app.get("/add_term",function (req, res){
 
 var _custom_dict = undefined;
 var _load_custom_dict = function () {
-	var json = JSON.parse(fs.readFileSync('../scripts/data/dict_custom.json', 'utf8'));
+	var json = JSON.parse(fs.readFileSync('./scripts/data/dict_custom.json', 'utf8'));
 	_custom_dict=json;
 	node_jieba_reset();
 };
@@ -338,7 +441,7 @@ var _node_jieba_parsing_callback = function (_result) {
 		var joined_result = "";    //把每個sub_result結合起來 準備回傳給client
 
 		//console.log(article);
-		var BATCH_CHECK = 10;
+		var BATCH_CHECK = 50;
 
 		for(var t=0,len=_result.length;t<len;t+=BATCH_CHECK){
 			temp_array.push(_result.slice(t,t+BATCH_CHECK));
